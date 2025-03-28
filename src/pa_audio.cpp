@@ -281,3 +281,8 @@ void audio_destroy()
     Pa_Terminate();
     printf( "Test finished.\n" );
 }
+
+float audio_visual_1() {
+    // TODO: not exactly threadsafe
+    return intern.synth.eg.out;
+}

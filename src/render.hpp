@@ -7,4 +7,4 @@ extern renderstate_t rstate;
 
 void render_init();
 
-void render();
+void render( float x );

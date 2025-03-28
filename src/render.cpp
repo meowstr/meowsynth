@@ -12,8 +12,9 @@ renderstate_t rstate;
 struct {
 } intern;
 
-void render()
+void render( float x )
 {
-    glClearColor( 0.2f, 0.0f, 0.0f, 1.0f );
+    //glClearColor( 0.2f, 0.0f, 0.0f, 1.0f );
+    glClearColor( x, x, x, 1.0f );
     glClear( GL_COLOR_BUFFER_BIT );
 }

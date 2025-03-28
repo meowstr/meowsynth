@@ -77,7 +77,7 @@ static void loop()
         int chan = Pm_MessageStatus( event.message ) & MIDI_CHN_MASK;
         int data1 = Pm_MessageData1( event.message );
         int data2 = Pm_MessageData2( event.message );
-        INFO_LOG( "[chan %d : %2x] : %2x %2x", chan, cmd, data1, data2 );
+        INFO_LOG( "[chan %x : %2x] : %2x %2x", chan, cmd, data1, data2 );
 
         if ( cmd == 0x90 ) {
             pressed_note_count++;
@@ -85,12 +85,12 @@ static void loop()
         }
         if ( cmd == 0x80 ) {
             pressed_note_count--;
-            if (pressed_note_count == 0) audio_stop_midi();
+            if ( pressed_note_count == 0 ) audio_stop_midi();
         }
     }
 
     audio_tick();
-    render();
+    render( audio_visual_1() );
 }
 
 #if defined( _WIN32 ) and RELEASE
