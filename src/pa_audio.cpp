@@ -20,9 +20,10 @@ struct synth_command_t {
     enum {
         MIDI_START,
         MIDI_STOP,
+        MIDI_CONTROL,
     } type;
 
-    int midi_no;
+    int value;
 };
 
 struct synth_t {
@@ -33,26 +34,30 @@ struct synth_t {
     int phase;
 
     /// voltage controlled oscillator
-    struct {
+    struct vco_t {
         float pitch;
         float vco_wave;
         float pulse_width;
     } vco;
 
     /// voltage controlled filter
-    struct {
+    struct vcf_t {
         float cutoff;
         float resonance;
+
+        float out;
+
+        float process( float in );
     } vcf;
 
     /// voltage controlled amplifier
-    struct {
+    struct vca_t {
         float volume;
         int vca_mode; // 0 - ON   1 - EG
     } vca;
 
     /// low frequency oscillator
-    struct {
+    struct lfo_t {
         float lfo_rate;
         float lfo_wave;
     } lfo;
@@ -121,6 +126,17 @@ float synth_t::envelope_factor()
     }
 }
 
+float synth_t::vcf_t::process( float in )
+{
+    float rc = 1.0f / ( 2 * M_PI * cutoff );
+    float dt = 1.0f / SAMPLE_RATE;
+    float a = dt / ( rc + dt );
+
+    out = a * in + ( 1 - a ) * out;
+
+    return out;
+}
+
 struct {
     PaStream * stream;
     synth_t synth;
@@ -149,11 +165,15 @@ static int pa_callback(
         if ( command.type == synth_command_t::MIDI_START ) {
             if ( !s->midi_enable ) s->eg.t = 0.0f;
             s->midi_enable = 1;
-            s->midi_no = command.midi_no;
+            s->midi_no = command.value;
         }
         if ( command.type == synth_command_t::MIDI_STOP ) {
             s->midi_enable = 0;
             s->eg.t = 0.0f;
+        }
+        if ( command.type == synth_command_t::MIDI_CONTROL ) {
+            s->vcf.cutoff =
+                100.0f + ( (float) command.value / 0x7f ) * 5000.0f;
         }
     }
 
@@ -162,6 +182,7 @@ static int pa_callback(
         //*out++ = s->sine[ s->phase ];
         //*out++ = s->sine[ s->phase ];
         float x = s->triangle[ s->phase ] * s->envelope_factor();
+        x = s->vcf.process( x );
         *out++ = x;
         *out++ = x;
 
@@ -190,11 +211,19 @@ static void setup_osc_tables()
     }
 }
 
+void audio_send_control( int value )
+{
+    synth_command_t cmd;
+    cmd.type = synth_command_t::MIDI_CONTROL;
+    cmd.value = value;
+    PaUtil_WriteRingBuffer( &intern.synth.command_queue, &cmd, 1 );
+}
+
 void audio_start_midi( int midi_no )
 {
     synth_command_t cmd;
     cmd.type = synth_command_t::MIDI_START;
-    cmd.midi_no = midi_no;
+    cmd.value = midi_no;
     PaUtil_WriteRingBuffer( &intern.synth.command_queue, &cmd, 1 );
 }
 
@@ -218,6 +247,8 @@ int audio_init()
     intern.synth.eg.decay = 0.0f;
     intern.synth.eg.sustain = 1.0f;
     intern.synth.eg.release = 0.1f;
+
+    intern.synth.vcf.cutoff = 500;
 
     static void * command_buffer = new synth_command_t[ 1024 ];
     PaUtil_InitializeRingBuffer(
@@ -282,7 +313,8 @@ void audio_destroy()
     printf( "Test finished.\n" );
 }
 
-float audio_visual_1() {
+float audio_visual_1()
+{
     // TODO: not exactly threadsafe
     return intern.synth.eg.out;
 }

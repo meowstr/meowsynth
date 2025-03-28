@@ -87,6 +87,10 @@ static void loop()
             pressed_note_count--;
             if ( pressed_note_count == 0 ) audio_stop_midi();
         }
+
+        if ( cmd == 0xb0 ) {
+            audio_send_control( data2 );
+        }
     }
 
     audio_tick();
